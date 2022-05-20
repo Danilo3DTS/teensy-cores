@@ -52,16 +52,16 @@
 // changes not recommended below this point....
 ////////////////////////////////////////////////////////////////
 
-#ifdef SERIAL_9BIT_SUPPORT
-static uint8_t use9Bits = 0;
+#ifdef SERIAL_9BIT_SUPPORT // Dan. if using 9 bits, then the minimum data size is 16bit
+static uint8_t use9Bits = 0;  
 #define BUFTYPE uint16_t
 #else
 #define BUFTYPE uint8_t
 #define use9Bits 0
 #endif
 
-static volatile BUFTYPE tx_buffer[SERIAL1_TX_BUFFER_SIZE];
-static volatile BUFTYPE rx_buffer[SERIAL1_RX_BUFFER_SIZE];
+static volatile BUFTYPE tx_buffer[SERIAL1_TX_BUFFER_SIZE];  // the bytes to be sent will be stored here
+static volatile BUFTYPE rx_buffer[SERIAL1_RX_BUFFER_SIZE];  // the bytes received will be stored here
 static volatile BUFTYPE	*rx_buffer_storage_ = NULL;
 static volatile BUFTYPE	*tx_buffer_storage_ = NULL;
 
@@ -413,8 +413,8 @@ void serial_putchar(uint32_t c)
 {
 	uint32_t head, n;
 
-	if (!(SIM_SCGC4 & SIM_SCGC4_UART0)) return;
-	if (transmit_pin) transmit_assert();
+	if (!(SIM_SCGC4 & SIM_SCGC4_UART0)) return;  // Dan. I guess: If this UART is not enabled
+	if (transmit_pin) transmit_assert();  // Dan. The pin goes HIGH before transmission
 	#if defined(KINETISL)
 	if (half_duplex_mode) {
 		__disable_irq();
@@ -425,20 +425,20 @@ void serial_putchar(uint32_t c)
 	}
 	#endif 
 	head = tx_buffer_head;
-	if (++head >= tx_buffer_total_size_) head = 0;
+	if (++head >= tx_buffer_total_size_) head = 0;  // Dan. If the head has exceeded the total storage, then write to the begining of the array
 	while (tx_buffer_tail == head) {
 		int priority = nvic_execution_priority();
 		if (priority <= IRQ_PRIORITY) {
-			if ((UART0_S1 & UART_S1_TDRE)) {
+			if ((UART0_S1 & UART_S1_TDRE)) {  // Dan. If the transmit data register is empty (something can be placed in it to be sent)
 				uint32_t tail = tx_buffer_tail;
-				if (++tail >= tx_buffer_total_size_) tail = 0;
-				if (tail < SERIAL1_TX_BUFFER_SIZE) {
-					n = tx_buffer[tail];
+				if (++tail >= tx_buffer_total_size_) tail = 0;  // Dan. Increments tail
+				if (tail < SERIAL1_TX_BUFFER_SIZE) {  // Dan. If tail is within the range of tx_buffer size
+					n = tx_buffer[tail];  // Dan. Read a byte from the first array (tx_buffer), and store it in n
 				} else {
-					n = tx_buffer_storage_[tail-SERIAL1_TX_BUFFER_SIZE];
+					n = tx_buffer_storage_[tail-SERIAL1_TX_BUFFER_SIZE];  // Dan. This is probably after extending the tx buffer storage. Read from the second, extended array (tx_buffer_storage_)
 				}
 				if (use9Bits) UART0_C3 = (UART0_C3 & ~0x40) | ((n & 0x100) >> 2);
-				UART0_D = n;
+				UART0_D = n;  // Dan. Write n to the data register.
 				tx_buffer_tail = tail;
 			}
 		} else if (priority >= 256) {
@@ -446,9 +446,9 @@ void serial_putchar(uint32_t c)
 		}
 	}
 	if (head < SERIAL1_TX_BUFFER_SIZE) {
-		tx_buffer[head] = c;
+		tx_buffer[head] = c;  // Dan. The character is written to the head of the array
 	} else {
-		tx_buffer_storage_[head - SERIAL1_TX_BUFFER_SIZE] = c;
+		tx_buffer_storage_[head - SERIAL1_TX_BUFFER_SIZE] = c;  // Dan. If additional storage has been requested, write the new character to the head of the extra array.
 	}
 	transmitting = 1;
 	tx_buffer_head = head;
@@ -503,7 +503,7 @@ void serial_write(const void *buf, unsigned int count)
 void serial_write(const void *buf, unsigned int count)
 {
 	const uint8_t *p = (const uint8_t *)buf;
-	while (count-- > 0) serial_putchar(*p++);
+	while (count-- > 0) serial_putchar(*p++);  // Dan. I think this puts byte by byte in the tx_buffer
 }
 #endif
 
@@ -528,7 +528,7 @@ int serial_available(void)
 
 	head = rx_buffer_head;
 	tail = rx_buffer_tail;
-	if (head >= tail) return head - tail;
+	if (head >= tail) return head - tail;  // Dan. The characters to be read are between head and tail.
 	return rx_buffer_total_size_ + head - tail;
 }
 
@@ -542,7 +542,7 @@ int serial_getchar(void)
 	if (head == tail) return -1;
 	if (++tail >= rx_buffer_total_size_) tail = 0;
 	if (tail < SERIAL1_RX_BUFFER_SIZE) {
-		c = rx_buffer[tail];
+		c = rx_buffer[tail];  // Dan. The value is read from the tail, but written to the head
 	} else {
 		c = rx_buffer_storage_[tail-SERIAL1_RX_BUFFER_SIZE];
 	}
@@ -590,6 +590,7 @@ void serial_clear(void)
 //   LIN break detect		    UART_S2_LBKDIF
 //   RxD pin active edge	    UART_S2_RXEDGIF
 
+// UART Interrupt handler
 void uart0_status_isr(void)
 {
 	uint32_t head, tail, n;
@@ -670,17 +671,17 @@ void uart0_status_isr(void)
 		if (UART0_S1 & UART_S1_TDRE) UART0_C2 = C2_TX_COMPLETING;
 	}
 #else
-	if (UART0_S1 & UART_S1_RDRF) {
-		if (use9Bits && (UART0_C3 & 0x80)) {
+	if (UART0_S1 & UART_S1_RDRF) {  // Dan. If a receive event happened
+		if (use9Bits && (UART0_C3 & 0x80)) {  // Dan. If the UART is configured for 9 bits, and the 9th bit is a 1 (0x80)
 			n = UART0_D | 0x100;
 		} else {
-			n = UART0_D;
+			n = UART0_D;  // Dan. store the value in the read data register
 		}
 		head = rx_buffer_head + 1;
 		if (head >= rx_buffer_total_size_) head = 0;
 		if (head != rx_buffer_tail) {
 			if (head < SERIAL1_RX_BUFFER_SIZE) {
-				rx_buffer[head] = n;
+				rx_buffer[head] = n;  // Dan. Write the value in the Read Data Register to the head (end) of rx_buffer. Buffer is read from the tail and written from the head.
 			} else {
 				rx_buffer_storage_[head-SERIAL1_RX_BUFFER_SIZE] = n;
 			}
@@ -689,7 +690,7 @@ void uart0_status_isr(void)
 		}
 	}
 	c = UART0_C2;
-	if ((c & UART_C2_TIE) && (UART0_S1 & UART_S1_TDRE)) {
+	if ((c & UART_C2_TIE) && (UART0_S1 & UART_S1_TDRE)) {  // Dan. If a transmit event happened (done transitting a byte)
 		head = tx_buffer_head;
 		tail = tx_buffer_tail;
 		if (head == tail) {
@@ -697,19 +698,19 @@ void uart0_status_isr(void)
 		} else {
 			if (++tail >= tx_buffer_total_size_) tail = 0;
 			if (tail < SERIAL1_TX_BUFFER_SIZE) {
-				n = tx_buffer[tail];
+				n = tx_buffer[tail];  // Dan. Read the oldest value (tail) in the tx_buffer. Buffer is read from the tail and written from the head.
 			} else {
 				n = tx_buffer_storage_[tail-SERIAL1_TX_BUFFER_SIZE];
 			}
 			if (use9Bits) UART0_C3 = (UART0_C3 & ~0x40) | ((n & 0x100) >> 2);
-			UART0_D = n;
+			UART0_D = n;  // Dan. When transmission of a byte is complete, put the oldest value (tail) in the Transmit Data Register 
 			tx_buffer_tail = tail;
 		}
 	}
 #endif
-	if ((c & UART_C2_TCIE) && (UART0_S1 & UART_S1_TC)) {
+	if ((c & UART_C2_TCIE) && (UART0_S1 & UART_S1_TC)) {  // Dan. If a transmit complete event happened
 		transmitting = 0;
-		if (transmit_pin) transmit_deassert();
+		if (transmit_pin) transmit_deassert();  // Dan. Lower the transmit pin, to signal end of Transmission Complete
 		#if defined(KINETISL)
 		if (half_duplex_mode) {
 			__disable_irq();
@@ -724,7 +725,7 @@ void uart0_status_isr(void)
 }
 
 
-
+// Dan. Also writes the characters in a string (char*) to the tx_buffer, until the character is '\0', making sure that every '\n' is preceded by a '\r'
 void serial_print(const char *p)
 {
 	while (*p) {
