@@ -1,0 +1,9 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\teensy3",
+    "\\usb_serial_hid"
+  ],
+  "SelectedNode": "\\teensy3\\HardwareSerial.h",
+  "PreviewInSolutionExplorer": false
+}

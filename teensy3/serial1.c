@@ -437,7 +437,7 @@ void serial_putchar(uint32_t c)
 	head = tx_buffer_head;
 	if (++head >= tx_buffer_total_size_) head = 0;  // Dan. If the head has exceeded the total storage, then write to the beginning of the array
 	// Dan. Clearing the tx_buffer. Head is chasing tail. Tail incremented in isr. Only then can a new byte be put in the buffer.
-	while (tx_buffer_tail == head) {  
+	while (tx_buffer_tail == head) {  // Dan. This blocks the CPU 
 		int priority = nvic_execution_priority();
 		if (priority <= IRQ_PRIORITY) {
 			if ((UART0_S1 & UART_S1_TDRE)) {  // Dan. If the transmit data register is empty (something can be placed in it to be sent)
@@ -463,7 +463,7 @@ void serial_putchar(uint32_t c)
 	}
 	transmitting = 1;
 	tx_buffer_head = head;
-	UART0_C2 = C2_TX_ACTIVE;
+	UART0_C2 = C2_TX_ACTIVE;  // Dan. Enable TE, RE, RIE, and TIE
 }
 
 #ifdef HAS_KINETISK_UART0_FIFO
