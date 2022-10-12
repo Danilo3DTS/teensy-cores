@@ -686,7 +686,7 @@ void uart0_status_isr(void)
 	}
 #else
 	if (UART0_S1 & UART_S1_RDRF) {  // Dan. If a receive event happened (Receive Data Register Full)
-		if (use9Bits && (UART0_C3 & 0x80)) {  // Dan. If the UART is configured for 9 bits, and the 9th bit is a 1 (0x80)
+		if (use9Bits && (UART0_C3 & 0x80)) {  // Dan. If the UART is configured for 9 bits, and the 9th bit (read from UART0_CR3, not UART0_D) is a 1 (0x80)
 			n = UART0_D | 0x100;
 		} else {
 			n = UART0_D;  // Dan. store the value in the read data register
