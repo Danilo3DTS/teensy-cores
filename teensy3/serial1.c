@@ -716,7 +716,7 @@ void uart0_status_isr(void)
 			} else {
 				n = tx_buffer_storage_[tail-SERIAL1_TX_BUFFER_SIZE];
 			}
-			if (use9Bits) UART0_C3 = (UART0_C3 & ~0x40) | ((n & 0x100) >> 2);
+			if (use9Bits) UART0_C3 = (UART0_C3 & ~0x40) | ((n & 0x100) >> 2);  // If in 9 bit mode, store the 9th bit in the UART0_C3
 			UART0_D = n;  // Dan. When transmission of a byte is complete, put the oldest value (tail) in the Transmit Data Register 
 			tx_buffer_tail = tail;
 		}
